@@ -1,0 +1,22 @@
+{
+  "name": "sportsync-backend",
+  "version": "1.0.0",
+  "description": "Backend REST API for SportSync College Sports Management System",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "init-db": "node src/utils/initDb.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "firebase-admin": "^12.1.0",
+    "joi": "^17.13.1",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.9.8",
+    "sqlite3": "^6.0.1"
+  }
+}
