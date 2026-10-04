@@ -3,12 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 
 class StatusBadge extends StatelessWidget {
-  final String status;
+  final String? status;
   final double fontSize;
 
   const StatusBadge({
     super.key,
-    required this.status,
+    this.status,
     this.fontSize = 12.0,
   });
 
@@ -16,7 +16,7 @@ class StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     Color bg;
     Color fg;
-    String display = status.toUpperCase();
+    String display = (status ?? '').toUpperCase();
 
     switch (display) {
       case 'APPROVED':

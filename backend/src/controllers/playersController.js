@@ -85,11 +85,15 @@ async function createPlayer(req, res, next) {
       return res.status(400).json({ success: false, message: 'Cannot create player: no team assigned to your account.' });
     }
 
-    const { name, registerNumber, email, phone, department, academicYear, position, jerseyNumber, password } = req.body;
+    const { name, registerNumber, email, phone, department, academicYear, position, jerseyNumber, password, role } = req.body;
 
-    if (!name || !registerNumber || !email || !department || !academicYear) {
-      return res.status(400).json({ success: false, message: 'Name, Register Number, Email, Department, and Academic Year are required.' });
+    if (!name || !registerNumber || !email) {
+      return res.status(400).json({ success: false, message: 'Full Name, College Email, and Register Number are required.' });
     }
+
+    const targetRole = (role && (role.toUpperCase() === 'CAPTAIN' || role.toUpperCase() === 'STAFF')) ? role.toUpperCase() : 'PLAYER';
+    const deptStr = department && department.trim() ? department.trim() : 'Sports Department';
+    const yearStr = academicYear && academicYear.trim() ? academicYear.trim() : 'Active Member';
 
     // Check duplicate email or register number
     const [existing] = await db.query(
@@ -103,7 +107,7 @@ async function createPlayer(req, res, next) {
         return res.status(400).json({ success: false, message: 'A user with this email address already exists.' });
       }
       if (dupe.register_number === registerNumber.trim()) {
-        return res.status(400).json({ success: false, message: 'A player with this register number already exists.' });
+        return res.status(400).json({ success: false, message: 'A team member with this register number already exists.' });
       }
     }
 
@@ -113,8 +117,8 @@ async function createPlayer(req, res, next) {
     // 1. Insert into users table
     const [userResult] = await db.query(
       `INSERT INTO users (email, password, role, name, register_number, department, academic_year, phone, is_active)
-       VALUES (?, ?, 'PLAYER', ?, ?, ?, ?, ?, 1)`,
-      [email.trim().toLowerCase(), passwordHash, name.trim(), registerNumber.trim(), department.trim(), academicYear.trim(), phone ? phone.trim() : null]
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [email.trim().toLowerCase(), passwordHash, targetRole, name.trim(), registerNumber.trim(), deptStr, yearStr, phone ? phone.trim() : null]
     );
 
     const newUserId = userResult.insertId;
@@ -126,9 +130,14 @@ async function createPlayer(req, res, next) {
       [newUserId, teamId, position ? position.trim() : null, jerseyNumber ? parseInt(jerseyNumber) : null]
     );
 
+    // 3. If role is CAPTAIN, update team captain_id
+    if (targetRole === 'CAPTAIN') {
+      await db.query('UPDATE teams SET captain_id = ? WHERE id = ?', [newUserId, teamId]);
+    }
+
     return res.status(201).json({
       success: true,
-      message: `Player account created successfully for ${name}. Initial password: ${initialPassword}`,
+      message: `${targetRole === 'CAPTAIN' ? 'Captain' : 'Player'} account created successfully for ${name}.`,
       playerId: playerResult.insertId,
       userId: newUserId
     });

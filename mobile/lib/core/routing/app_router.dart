@@ -23,6 +23,7 @@ import '../../features/captain/screens/captain_squad_selection_screen.dart';
 import '../../features/captain/screens/captain_od_request_screen.dart';
 import '../../features/captain/screens/captain_tada_request_screen.dart';
 import '../../features/captain/screens/captain_feedback_screen.dart';
+import '../../features/captain/screens/captain_training_screen.dart';
 
 // Player Screens
 import '../../features/player/screens/player_dashboard_screen.dart';
@@ -43,11 +44,12 @@ GoRouter createRouter(AuthProvider authProvider) {
       final isLoggingIn = state.matchedLocation == '/login' || state.matchedLocation == '/forgot-password';
 
       if (status == AuthStatus.loading || status == AuthStatus.uninitialized) {
-        return '/splash';
+        return state.matchedLocation == '/splash' ? null : '/splash';
       }
 
       if (status == AuthStatus.unauthenticated) {
-        return isLoggingIn ? null : '/login';
+        if (isLoggingIn) return null;
+        return state.matchedLocation == '/login' ? null : '/login';
       }
 
       // If authenticated and trying to access splash or login, redirect to role dashboard
@@ -83,6 +85,7 @@ GoRouter createRouter(AuthProvider authProvider) {
       GoRoute(path: '/captain/od-request', builder: (context, state) => const CaptainOdRequestScreen()),
       GoRoute(path: '/captain/tada-request', builder: (context, state) => const CaptainTadaRequestScreen()),
       GoRoute(path: '/captain/feedback', builder: (context, state) => const CaptainFeedbackScreen()),
+      GoRoute(path: '/captain/training', builder: (context, state) => const CaptainTrainingScreen()),
 
       // Player Routes
       GoRoute(path: '/player/dashboard', builder: (context, state) => const PlayerDashboardScreen()),

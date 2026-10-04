@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../core/config/api_config.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -15,8 +17,41 @@ class CaptainSquadSelectionScreen extends StatefulWidget {
 
 class _CaptainSquadSelectionScreenState extends State<CaptainSquadSelectionScreen> {
   int? _selectedMatchId;
+  int? _loadedMatchId;
   final Set<int> _selectedPlayerIds = {};
   bool _isSubmitting = false;
+
+  void _loadSelectionsForMatch(int matchId, List<dynamic> matches) {
+    if (_loadedMatchId == matchId) return;
+    _loadedMatchId = matchId;
+
+    // Load local cached selections first
+    final match = matches.firstWhere((m) => m['id'] == matchId, orElse: () => {});
+    final List selections = (match['selections'] as List?) ?? [];
+    _selectedPlayerIds.clear();
+    for (final s in selections) {
+      if (s['status'] != 'REJECTED' && s['player_id'] != null) {
+        _selectedPlayerIds.add(s['player_id'] as int);
+      }
+    }
+
+    // Fetch live selections from API
+    ApiClient().get(ApiConfig.matchSelections(matchId)).then((res) {
+      if (res.data != null && res.data['success'] == true) {
+        final List apiSelections = res.data['selections'] ?? [];
+        if (mounted && _selectedMatchId == matchId) {
+          setState(() {
+            _selectedPlayerIds.clear();
+            for (final s in apiSelections) {
+              if (s['status'] != 'REJECTED' && s['player_id'] != null) {
+                _selectedPlayerIds.add(s['player_id'] as int);
+              }
+            }
+          });
+        }
+      }
+    }).catchError((_) {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,10 +63,9 @@ class _CaptainSquadSelectionScreenState extends State<CaptainSquadSelectionScree
       _selectedMatchId = matches.first['id'];
     }
 
-    final currentMatch = matches.firstWhere(
-      (m) => m['id'] == _selectedMatchId,
-      orElse: () => matches.isNotEmpty ? matches.first : {},
-    );
+    if (_selectedMatchId != null) {
+      _loadSelectionsForMatch(_selectedMatchId!, matches);
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Match Squad Selection')),
@@ -62,10 +96,12 @@ class _CaptainSquadSelectionScreenState extends State<CaptainSquadSelectionScree
                           );
                         }).toList(),
                         onChanged: (val) {
-                          setState(() {
-                            _selectedMatchId = val;
-                            _selectedPlayerIds.clear();
-                          });
+                          if (val != null) {
+                            setState(() {
+                              _selectedMatchId = val;
+                              _loadedMatchId = null;
+                            });
+                          }
                         },
                       ),
                     ],
@@ -148,6 +184,7 @@ class _CaptainSquadSelectionScreenState extends State<CaptainSquadSelectionScree
                     onPressed: _selectedPlayerIds.isEmpty || _selectedMatchId == null
                         ? null
                         : () async {
+                            final messenger = ScaffoldMessenger.of(context);
                             setState(() => _isSubmitting = true);
                             final success = await captainProvider.submitSquadSelection(
                               _selectedMatchId!,
@@ -157,14 +194,14 @@ class _CaptainSquadSelectionScreenState extends State<CaptainSquadSelectionScree
                             setState(() => _isSubmitting = false);
 
                             if (success) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content: Text('Squad selection submitted to staff for approval! Status set to PENDING.'),
                                   backgroundColor: AppColors.success,
                                 ),
                               );
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(captainProvider.error ?? 'Failed to submit selection.'),
                                   backgroundColor: AppColors.error,

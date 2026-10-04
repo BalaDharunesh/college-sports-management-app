@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/custom_button.dart';
+import '../../../core/constants/cit_logo_data.dart';
 import '../providers/auth_provider.dart';
 
 class SportItem {
@@ -138,25 +139,18 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Header Logo
+                // Header Logo - CIT Logo
                 Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: AppColors.cardShadow,
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        )
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.sports_score_rounded,
-                      size: 48,
-                      color: Colors.white,
+                  child: Image.memory(
+                    citLogoBytes,
+                    height: 100,
+                    width: 100,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Image.asset(
+                      'assets/images/cit_logo.png',
+                      height: 100,
+                      width: 100,
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),

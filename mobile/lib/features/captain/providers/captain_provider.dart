@@ -14,6 +14,7 @@ class CaptainProvider extends ChangeNotifier {
   List<dynamic> _odRequests = [];
   List<dynamic> _tadaRequests = [];
   List<dynamic> _feedbackList = [];
+  List<dynamic> _trainingSchedules = [];
 
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -24,6 +25,13 @@ class CaptainProvider extends ChangeNotifier {
   List<dynamic> get odRequests => _odRequests;
   List<dynamic> get tadaRequests => _tadaRequests;
   List<dynamic> get feedbackList => _feedbackList;
+  List<dynamic> get trainingSchedules => _trainingSchedules;
+
+  Map<String, dynamic>? get nextTraining {
+    final active = _trainingSchedules.where((t) => t['is_cancelled'] == 0 || t['is_cancelled'] == false).toList();
+    if (active.isEmpty) return null;
+    return active.first;
+  }
 
   Future<void> fetchCaptainDashboardData() async {
     _isLoading = true;
@@ -38,6 +46,7 @@ class CaptainProvider extends ChangeNotifier {
         _apiClient.get(ApiConfig.odRequests),
         _apiClient.get(ApiConfig.tadaRequests),
         _apiClient.get(ApiConfig.feedback),
+        _apiClient.get(ApiConfig.training),
       ]);
 
       if (results[0].data['success'] == true) _team = results[0].data['team'];
@@ -46,6 +55,7 @@ class CaptainProvider extends ChangeNotifier {
       if (results[3].data['success'] == true) _odRequests = results[3].data['odRequests'] ?? [];
       if (results[4].data['success'] == true) _tadaRequests = results[4].data['tadaRequests'] ?? [];
       if (results[5].data['success'] == true) _feedbackList = results[5].data['feedbackList'] ?? [];
+      if (results[6].data['success'] == true) _trainingSchedules = results[6].data['schedules'] ?? [];
     } catch (e) {
       _error = 'Failed to load captain dashboard data.';
     } finally {
@@ -75,10 +85,10 @@ class CaptainProvider extends ChangeNotifier {
     }
   }
 
-  // Create Player
-  Future<bool> createPlayer(Map<String, dynamic> data) async {
+  // Toggle Player Deactivation
+  Future<bool> togglePlayerDeactivation(int playerId) async {
     try {
-      final res = await _apiClient.post(ApiConfig.players, data: data);
+      final res = await _apiClient.patch(ApiConfig.deactivatePlayer(playerId));
       if (res.data['success'] == true) {
         await fetchCaptainDashboardData();
         return true;
@@ -88,6 +98,7 @@ class CaptainProvider extends ChangeNotifier {
       return false;
     }
   }
+
 
   // Create Match for assigned team
   Future<bool> createMatch(Map<String, dynamic> data) async {
@@ -111,8 +122,12 @@ class CaptainProvider extends ChangeNotifier {
         await fetchCaptainDashboardData();
         return true;
       }
+      _error = res.data['message'] ?? 'Failed to submit OD Request.';
+      notifyListeners();
       return false;
     } catch (e) {
+      _error = 'Error submitting OD Request.';
+      notifyListeners();
       return false;
     }
   }
@@ -125,8 +140,12 @@ class CaptainProvider extends ChangeNotifier {
         await fetchCaptainDashboardData();
         return true;
       }
+      _error = res.data['message'] ?? 'Failed to submit TA/DA Request.';
+      notifyListeners();
       return false;
     } catch (e) {
+      _error = 'Error submitting TA/DA Request.';
+      notifyListeners();
       return false;
     }
   }

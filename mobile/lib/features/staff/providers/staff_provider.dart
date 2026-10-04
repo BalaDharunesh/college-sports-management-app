@@ -28,14 +28,14 @@ class StaffProvider extends ChangeNotifier {
   List<dynamic> get feedbackList => _feedbackList;
 
   // Dashboard Stats Computed Properties
-  int get totalActivePlayers => _players.where((p) => p['player_active'] == 1 || p['is_active'] == 1).length;
+  int get totalActivePlayers => _players.where((p) => p is Map && (p['player_active'] == 1 || p['is_active'] == 1)).length;
 
   int get pendingSelectionsCount {
     int count = 0;
     for (var m in _matches) {
-      if (m['selections'] != null) {
+      if (m is Map && m['selections'] is List) {
         for (var s in m['selections']) {
-          if (s['status'] == 'PENDING') count++;
+          if (s is Map && s['status']?.toString() == 'PENDING') count++;
         }
       }
     }
@@ -125,8 +125,12 @@ class StaffProvider extends ChangeNotifier {
         await fetchStaffDashboardData();
         return true;
       }
+      _error = res.data['message'] ?? 'Failed to approve selection.';
+      notifyListeners();
       return false;
     } catch (e) {
+      _error = 'Connection or server error while approving selection.';
+      notifyListeners();
       return false;
     }
   }
@@ -138,8 +142,12 @@ class StaffProvider extends ChangeNotifier {
         await fetchStaffDashboardData();
         return true;
       }
+      _error = res.data['message'] ?? 'Failed to reject selection.';
+      notifyListeners();
       return false;
     } catch (e) {
+      _error = 'Connection or server error while rejecting selection.';
+      notifyListeners();
       return false;
     }
   }
@@ -216,7 +224,7 @@ class StaffProvider extends ChangeNotifier {
   }
 
   // Match Result
-  Future<bool> submitResult(int matchId, int teamScore, int opponentScore, String outcome, String? remarks) async {
+  Future<bool> submitResult(int matchId, dynamic teamScore, dynamic opponentScore, String outcome, String? remarks) async {
     try {
       final res = await _apiClient.post(ApiConfig.matchResult(matchId), data: {
         'teamScore': teamScore,

@@ -25,7 +25,14 @@ class PlayerProvider extends ChangeNotifier {
 
   // Next upcoming match
   Map<String, dynamic>? get nextMatch {
-    final upcoming = _matches.where((m) => m['status'] == 'SCHEDULED').toList();
+    final todayStr = DateTime.now().toIso8601String().split('T')[0];
+    final upcoming = _matches.where((m) {
+      final status = m['status']?.toString().toUpperCase() ?? '';
+      if (status == 'COMPLETED') return false;
+      final dateStr = m['match_date']?.toString() ?? '';
+      if (dateStr.isNotEmpty && dateStr.compareTo(todayStr) < 0) return false;
+      return true;
+    }).toList();
     if (upcoming.isNotEmpty) return upcoming.first;
     return null;
   }
@@ -67,7 +74,29 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> markNotificationRead(int notificationId) async {
     try {
+      final index = _notifications.indexWhere((n) => n['id'] == notificationId);
+      if (index != -1 && (_notifications[index]['is_read'] == 0 || _notifications[index]['is_read'] == false)) {
+        _notifications[index]['is_read'] = 1;
+        if (_unreadNotificationsCount > 0) {
+          _unreadNotificationsCount--;
+        }
+        notifyListeners();
+      }
       await _apiClient.patch(ApiConfig.markSingleNotificationRead(notificationId));
+      await fetchPlayerDashboardData();
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    try {
+      _unreadNotificationsCount = 0;
+      for (var n in _notifications) {
+        n['is_read'] = 1;
+      }
+      notifyListeners();
+      await _apiClient.patch(ApiConfig.markNotificationsRead);
       await fetchPlayerDashboardData();
     } catch (e) {
       // Ignore

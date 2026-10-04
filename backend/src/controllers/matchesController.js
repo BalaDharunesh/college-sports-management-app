@@ -37,16 +37,26 @@ async function getMatches(req, res, next) {
 
     const [matches] = await db.query(sql, params);
 
-    // If caller is player, attach their personal selection status for each match
-    if (user.role === 'PLAYER' && user.playerId) {
-      for (const m of matches) {
-        const [sel] = await db.query(
-          'SELECT status, rejection_reason FROM match_selections WHERE match_id = ? AND player_id = ?',
-          [m.id, user.playerId]
-        );
-        if (sel.length > 0) {
-          m.my_selection_status = sel[0].status;
-          m.my_rejection_reason = sel[0].rejection_reason;
+    // Attach selections for all matches so STAFF and CAPTAINS can see match selections
+    for (const m of matches) {
+      const [selections] = await db.query(
+        `SELECT ms.*, p.jersey_number, p.position,
+                u.name as player_name, u.register_number, u.department, u.academic_year, u.email
+         FROM match_selections ms
+         JOIN players p ON ms.player_id = p.id
+         JOIN users u ON p.user_id = u.id
+         WHERE ms.match_id = ?
+         ORDER BY u.name ASC`,
+        [m.id]
+      );
+      m.selections = selections;
+
+      // If caller is player, attach their personal selection status for each match
+      if (user.role === 'PLAYER' && user.playerId) {
+        const mySel = selections.find(s => s.player_id == user.playerId);
+        if (mySel) {
+          m.my_selection_status = mySel.status;
+          m.my_rejection_reason = mySel.rejection_reason;
         } else {
           m.my_selection_status = 'NOT_SELECTED';
         }
@@ -118,12 +128,15 @@ async function createMatch(req, res, next) {
 
     const { title, opponentName, matchDate, startTime, venue, selectionDeadline, description } = req.body;
 
-    if (!title || !opponentName || !matchDate || !startTime || !venue || !selectionDeadline) {
+    if (!title || !matchDate || !startTime || !venue) {
       return res.status(400).json({
         success: false,
-        message: 'Title, Opponent Name, Match Date, Start Time, Venue, and Selection Deadline are required.'
+        message: 'Title, Match Date, Start Time, and Venue are required.'
       });
     }
+
+    const finalOpponent = opponentName && opponentName.trim() ? opponentName.trim() : 'TBD';
+    const finalDeadline = selectionDeadline && selectionDeadline.trim() ? selectionDeadline.trim() : `${matchDate} 18:00:00`;
 
     // Get sport_id from team
     const [teams] = await db.query('SELECT sport_id, staff_id FROM teams WHERE id = ?', [teamId]);
@@ -137,7 +150,7 @@ async function createMatch(req, res, next) {
     const [result] = await db.query(
       `INSERT INTO matches (title, sport_id, team_id, opponent_name, match_date, start_time, venue, selection_deadline, description, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'SCHEDULED')`,
-      [title.trim(), sportId, teamId, opponentName.trim(), matchDate, startTime, venue.trim(), selectionDeadline, description ? description.trim() : null]
+      [title.trim(), sportId, teamId, finalOpponent, matchDate, startTime, venue.trim(), finalDeadline, description ? description.trim() : null]
     );
 
     const matchId = result.insertId;
@@ -327,6 +340,18 @@ async function submitMatchSelections(req, res, next) {
         type: 'SELECTION_SUBMITTED',
         referenceId: matchId
       });
+    } else {
+      // Notify all active STAFF members if team has no specific staff_id assigned
+      const [staffUsers] = await db.query('SELECT id FROM users WHERE role = "STAFF" AND is_active = 1');
+      for (const sUser of staffUsers) {
+        await sendNotification({
+          userId: sUser.id,
+          title: 'New Match Squad Selection Submitted',
+          message: `Captain ${user.name} submitted ${playerIds.length} players for "${match.title}". Pending approval.`,
+          type: 'SELECTION_SUBMITTED',
+          referenceId: matchId
+        });
+      }
     }
 
     return res.json({
@@ -382,7 +407,7 @@ async function approveSelection(req, res, next) {
     const sel = selections[0];
 
     // Enforce team ownership
-    if (req.user.role === 'STAFF' && req.user.teamId != sel.team_id) {
+    if (req.user.role === 'STAFF' && req.user.teamId && req.user.teamId != sel.team_id) {
       return res.status(403).json({ success: false, message: 'Unauthorized to approve selections for another team.' });
     }
 
@@ -430,7 +455,7 @@ async function rejectSelection(req, res, next) {
 
     const sel = selections[0];
 
-    if (req.user.role === 'STAFF' && req.user.teamId != sel.team_id) {
+    if (req.user.role === 'STAFF' && req.user.teamId && req.user.teamId != sel.team_id) {
       return res.status(403).json({ success: false, message: 'Unauthorized to reject selections for another team.' });
     }
 
@@ -465,7 +490,7 @@ async function submitMatchResult(req, res, next) {
     const user = req.user;
     const { teamScore, opponentScore, outcome, remarks } = req.body;
 
-    if (teamScore === undefined || opponentScore === undefined || !outcome) {
+    if (teamScore === undefined || teamScore === null || opponentScore === undefined || opponentScore === null || !outcome) {
       return res.status(400).json({ success: false, message: 'Team score, opponent score, and outcome (WIN/LOSS/DRAW) are required.' });
     }
 
@@ -479,17 +504,20 @@ async function submitMatchResult(req, res, next) {
       return res.status(403).json({ success: false, message: 'Unauthorized to submit results for another team.' });
     }
 
+    const tScore = String(teamScore).trim();
+    const oScore = String(opponentScore).trim();
+
     // Upsert match result
     const [exist] = await db.query('SELECT id FROM match_results WHERE match_id = ?', [matchId]);
     if (exist.length > 0) {
       await db.query(
         'UPDATE match_results SET team_score = ?, opponent_score = ?, outcome = ?, remarks = ? WHERE match_id = ?',
-        [teamScore, opponentScore, outcome, remarks || null, matchId]
+        [tScore, oScore, outcome, remarks || null, matchId]
       );
     } else {
       await db.query(
         'INSERT INTO match_results (match_id, team_score, opponent_score, outcome, remarks) VALUES (?, ?, ?, ?, ?)',
-        [matchId, teamScore, opponentScore, outcome, remarks || null]
+        [matchId, tScore, oScore, outcome, remarks || null]
       );
     }
 
@@ -500,7 +528,7 @@ async function submitMatchResult(req, res, next) {
     await notifyTeam({
       teamId: match.team_id,
       title: 'Match Results Published!',
-      message: `Results for "${match.title}" vs ${match.opponent_name}: ${match.title} ${outcome} (${teamScore} - ${opponentScore}).`,
+      message: `Results for "${match.title}" vs ${match.opponent_name}: ${match.title} ${outcome} (${tScore} - ${oScore}).`,
       type: 'MATCH_RESULT',
       referenceId: matchId
     });

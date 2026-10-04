@@ -37,34 +37,52 @@ class _PlayerDashboardScreenState extends State<PlayerDashboardScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.sports_rounded, size: 20),
-            const SizedBox(width: 8),
+            Icon(Icons.sports_rounded, size: 20),
+            SizedBox(width: 8),
             Text('SportSync - Student Portal'),
           ],
         ),
         actions: [
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_outlined),
-                onPressed: () => context.push('/notifications'),
-              ),
-              if (playerProvider.unreadNotificationsCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
-                    child: Text(
-                      '${playerProvider.unreadNotificationsCount}',
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => context.push('/notifications'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.notifications_outlined, size: 24),
+                  if (playerProvider.unreadNotificationsCount > 0)
+                    Positioned(
+                      top: -4,
+                      right: -6,
+                      child: IgnorePointer(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: const BoxDecoration(
+                            color: AppColors.error,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          child: Center(
+                            child: Text(
+                              '${playerProvider.unreadNotificationsCount}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
@@ -82,53 +100,45 @@ class _PlayerDashboardScreenState extends State<PlayerDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Welcome Player Card
+                    // CIT Style Profile Banner
                     Container(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppColors.accent, Color(0xFF0D9488)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border, width: 1),
                         boxShadow: const [
-                          BoxShadow(color: AppColors.cardShadow, blurRadius: 10, offset: Offset(0, 4))
+                          BoxShadow(color: AppColors.cardShadow, blurRadius: 8, offset: Offset(0, 2))
                         ],
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(12),
+                          const CircleAvatar(
+                            radius: 30,
+                            backgroundColor: AppColors.avatarBg,
+                            child: Icon(Icons.person, size: 36, color: AppColors.primary),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  (user?.name ?? 'Player Name').toUpperCase(),
+                                  style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                                 ),
-                                child: Text(
-                                  'OFFICIAL ATHLETE',
-                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                const SizedBox(height: 2),
+                                Text(
+                                  user?.registerNumber ?? '22CS045',
+                                  style: GoogleFonts.outfit(fontSize: 13, color: AppColors.textSecondary),
                                 ),
-                              ),
-                              Text(user?.sportName ?? 'Sports', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            user?.name ?? 'Player Name',
-                            style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Reg No: ${user?.registerNumber ?? "22CS045"} • Jersey #${user?.jerseyNumber ?? "18"}',
-                            style: GoogleFonts.outfit(fontSize: 14, color: Colors.white.withOpacity(0.9)),
-                          ),
-                          Text(
-                            'Position: ${user?.position ?? "Top-Order Batsman"}',
-                            style: GoogleFonts.outfit(fontSize: 13, color: Colors.white.withOpacity(0.8)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'ATHLETE • ${user?.sportName ?? "Sports"} • Jersey #${user?.jerseyNumber ?? "18"}',
+                                  style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),

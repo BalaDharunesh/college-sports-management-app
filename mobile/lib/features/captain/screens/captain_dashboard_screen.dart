@@ -9,6 +9,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/captain_provider.dart';
+import '../../../core/widgets/view_squad_modal.dart';
 
 class CaptainDashboardScreen extends StatefulWidget {
   const CaptainDashboardScreen({super.key});
@@ -40,10 +41,19 @@ class _CaptainDashboardScreenState extends State<CaptainDashboardScreen> {
           children: [
             const Icon(Icons.stars_outlined, size: 20),
             const SizedBox(width: 8),
-            Text('Captain Portal - ${user?.sportName ?? "Sports"}'),
+            Expanded(
+              child: Text(
+                'Captain Portal - ${user?.sportName ?? "Sports"}',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () => context.push('/notifications'),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => captainProvider.fetchCaptainDashboardData(),
@@ -64,49 +74,45 @@ class _CaptainDashboardScreenState extends State<CaptainDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Banner
+                    // CIT Style Profile Banner
                     Container(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppColors.secondary, Color(0xFF1D4ED8)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border, width: 1),
                         boxShadow: const [
-                          BoxShadow(color: AppColors.cardShadow, blurRadius: 10, offset: Offset(0, 4))
+                          BoxShadow(color: AppColors.cardShadow, blurRadius: 8, offset: Offset(0, 2))
                         ],
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  'TEAM CAPTAIN',
-                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              Text(user?.sportName ?? 'Cricket', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w600)),
-                            ],
+                          const CircleAvatar(
+                            radius: 30,
+                            backgroundColor: AppColors.avatarBg,
+                            child: Icon(Icons.person, size: 36, color: AppColors.secondary),
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            user?.name ?? 'Captain Name',
-                            style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Reg No: ${user?.registerNumber ?? "21CS001"} • ${user?.teamName ?? "Team"}',
-                            style: GoogleFonts.outfit(fontSize: 14, color: Colors.white.withOpacity(0.85)),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  (user?.name ?? 'Rahul Sharma').toUpperCase(),
+                                  style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  user?.registerNumber ?? '21CS001',
+                                  style: GoogleFonts.outfit(fontSize: 13, color: AppColors.textSecondary),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'CAPTAIN • ${user?.sportName ?? "Cricket"} (${user?.teamName ?? "Strikers XI"})',
+                                  style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -137,6 +143,13 @@ class _CaptainDashboardScreenState extends State<CaptainDashboardScreen> {
                           icon: Icons.sports_cricket_outlined,
                           iconColor: AppColors.primary,
                           onTap: () => context.push('/captain/squad-selection'),
+                        ),
+                        DashboardCard(
+                          title: 'Training Sessions',
+                          value: '${captainProvider.trainingSchedules.where((t) => t['is_cancelled'] != 1 && t['is_cancelled'] != true && (t['training_date']?.toString() ?? '').compareTo(DateTime.now().toIso8601String().split('T')[0]) >= 0).length}',
+                          icon: Icons.fitness_center_outlined,
+                          iconColor: AppColors.success,
+                          onTap: () => context.push('/captain/training'),
                         ),
                         DashboardCard(
                           title: 'OD Requests',
@@ -172,52 +185,142 @@ class _CaptainDashboardScreenState extends State<CaptainDashboardScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Matches
+                    // Upcoming Matches
                     Text('Upcoming Matches & Squad Selections', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    captainProvider.matches.isEmpty
-                        ? const EmptyState(
-                            icon: Icons.event_busy_outlined,
-                            title: 'No Upcoming Matches',
-                            message: 'No matches scheduled for your team yet.',
-                          )
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: captainProvider.matches.length,
-                            itemBuilder: (context, index) {
-                              final match = captainProvider.matches[index];
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                    () {
+                      final todayStr = DateTime.now().toIso8601String().split('T')[0];
+                      final upcoming = captainProvider.matches.where((m) {
+                        final status = m['status']?.toString().toUpperCase() ?? '';
+                        if (status == 'COMPLETED') return false;
+                        final dateStr = m['match_date']?.toString() ?? '';
+                        if (dateStr.isNotEmpty && dateStr.compareTo(todayStr) < 0) return false;
+                        return true;
+                      }).toList();
+
+                      if (upcoming.isEmpty) {
+                        return const EmptyState(
+                          icon: Icons.event_busy_outlined,
+                          title: 'No Upcoming Matches',
+                          message: 'No matches scheduled after current date.',
+                        );
+                      }
+                      return ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: upcoming.length,
+                        itemBuilder: (context, index) {
+                          final match = upcoming[index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Expanded(child: Text(match['title'], style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16))),
-                                          StatusBadge(status: match['status']),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text('vs ${match['opponent_name']} • Date: ${match['match_date']}'),
-                                      const SizedBox(height: 12),
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: ElevatedButton.icon(
-                                          onPressed: () => context.push('/captain/squad-selection'),
-                                          icon: const Icon(Icons.touch_app_outlined, size: 16),
-                                          label: const Text('Manage Match Squad'),
+                                      Expanded(child: Text(match['title'], style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16))),
+                                      StatusBadge(status: match['status']),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text('vs ${match['opponent_name']} • Date: ${match['match_date']}'),
+                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      ElevatedButton.icon(
+                                        onPressed: () => showViewSquadModal(context, match),
+                                        icon: const Icon(Icons.groups_outlined, size: 16),
+                                        label: const Text('View Squad'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.primary,
+                                          foregroundColor: Colors.white,
+                                          minimumSize: const Size(0, 36),
                                         ),
+                                      ),
+                                      OutlinedButton.icon(
+                                        onPressed: () => context.push('/captain/squad-selection'),
+                                        icon: const Icon(Icons.touch_app_outlined, size: 16),
+                                        label: const Text('Manage Squad'),
+                                        style: OutlinedButton.styleFrom(minimumSize: const Size(0, 36)),
                                       ),
                                     ],
                                   ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    }(),
+
+                    // Completed Matches & Results
+                    const SizedBox(height: 24),
+                    Text('Completed Matches & Results', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Builder(
+                      builder: (context) {
+                        final todayStr = DateTime.now().toIso8601String().split('T')[0];
+                        final completed = captainProvider.matches.where((m) {
+                          final status = m['status']?.toString().toUpperCase() ?? '';
+                          if (status == 'COMPLETED') return true;
+                          final dateStr = m['match_date']?.toString() ?? '';
+                          if (dateStr.isNotEmpty && dateStr.compareTo(todayStr) < 0) return true;
+                          return false;
+                        }).toList();
+
+                        if (completed.isEmpty) {
+                          return const EmptyState(
+                            icon: Icons.task_alt_outlined,
+                            title: 'No Completed Matches',
+                            message: 'Finished matches prior to current date will appear here.',
+                          );
+                        }
+
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: completed.length,
+                          itemBuilder: (context, index) {
+                            final match = completed[index];
+                            final String scoreText = match['team_score'] != null && match['opponent_score'] != null
+                                ? 'Result: ${match['team_score']} - ${match['opponent_score']} (${match['outcome'] ?? ""})'
+                                : 'Match Completed';
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(child: Text(match['title'], style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16))),
+                                        const StatusBadge(status: 'COMPLETED'),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text('vs ${match['opponent_name']} • Date: ${match['match_date']}'),
+                                    const SizedBox(height: 6),
+                                    Text(scoreText, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.secondary)),
+                                    if (match['result_remarks'] != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text('Remarks: ${match['result_remarks']}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                    ],
+                                  ],
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),

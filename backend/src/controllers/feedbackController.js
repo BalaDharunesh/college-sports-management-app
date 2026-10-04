@@ -100,7 +100,7 @@ async function respondToFeedback(req, res, next) {
     }
 
     const fb = rows[0];
-    if (req.user.role === 'STAFF' && req.user.teamId != fb.team_id) {
+    if (req.user.role === 'STAFF' && req.user.teamId && req.user.teamId != fb.team_id) {
       return res.status(403).json({ success: false, message: 'Unauthorized to respond to feedback for another team.' });
     }
 

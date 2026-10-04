@@ -27,9 +27,10 @@ async function createOdRequest(req, res, next) {
     const match = matches[0];
 
     // Validate players belong to team
+    const placeholders = playerIds.map(() => '?').join(',');
     const [validPlayers] = await db.query(
-      'SELECT id FROM players WHERE team_id = ? AND id IN (?)',
-      [teamId, playerIds]
+      `SELECT id FROM players WHERE team_id = ? AND id IN (${placeholders})`,
+      [teamId, ...playerIds]
     );
 
     if (validPlayers.length !== new Set(playerIds).size) {
@@ -130,7 +131,7 @@ async function approveOdRequest(req, res, next) {
     }
 
     const reqObj = requests[0];
-    if (req.user.role === 'STAFF' && req.user.teamId != reqObj.team_id) {
+    if (req.user.role === 'STAFF' && req.user.teamId && req.user.teamId != reqObj.team_id) {
       return res.status(403).json({ success: false, message: 'Unauthorized to approve request for another team.' });
     }
 
@@ -147,6 +148,24 @@ async function approveOdRequest(req, res, next) {
       type: 'OD_DECISION',
       referenceId: odId
     });
+
+    // Notify all approved players in this OD request
+    const [odPlayers] = await db.query(
+      `SELECT p.user_id FROM od_request_players odp JOIN players p ON odp.player_id = p.id WHERE odp.od_request_id = ?`,
+      [odId]
+    );
+
+    for (const p of odPlayers) {
+      if (p.user_id) {
+        await sendNotification({
+          userId: p.user_id,
+          title: 'OD Approved',
+          message: `Your On-Duty (OD) request for match "${reqObj.match_title}" has been approved by staff.`,
+          type: 'OD_APPROVED',
+          referenceId: odId
+        });
+      }
+    }
 
     return res.json({ success: true, message: 'OD Request approved successfully.' });
   } catch (err) {
@@ -166,7 +185,7 @@ async function rejectOdRequest(req, res, next) {
     }
 
     const reqObj = requests[0];
-    if (req.user.role === 'STAFF' && req.user.teamId != reqObj.team_id) {
+    if (req.user.role === 'STAFF' && req.user.teamId && req.user.teamId != reqObj.team_id) {
       return res.status(403).json({ success: false, message: 'Unauthorized to reject request for another team.' });
     }
 
@@ -203,8 +222,8 @@ async function createTadaRequest(req, res, next) {
 
     const { matchId, travelDetails, estimatedAmount, remarks, playerIds } = req.body;
 
-    if (!matchId || !travelDetails || estimatedAmount === undefined || !Array.isArray(playerIds) || playerIds.length === 0) {
-      return res.status(400).json({ success: false, message: 'Match ID, travel details, estimated amount, and playerIds are required.' });
+    if (!matchId || !travelDetails || estimatedAmount === undefined) {
+      return res.status(400).json({ success: false, message: 'Match ID, travel details, and estimated amount are required.' });
     }
 
     const [matches] = await db.query('SELECT m.*, t.staff_id FROM matches m JOIN teams t ON m.team_id = t.id WHERE m.id = ? AND m.team_id = ?', [matchId, teamId]);
@@ -222,8 +241,15 @@ async function createTadaRequest(req, res, next) {
 
     const tadaRequestId = result.insertId;
 
-    for (const pId of playerIds) {
-      await db.query('INSERT INTO tada_request_players (tada_request_id, player_id) VALUES (?, ?)', [tadaRequestId, pId]);
+    if (Array.isArray(playerIds) && playerIds.length > 0) {
+      const placeholders = playerIds.map(() => '?').join(',');
+      const [validPlayers] = await db.query(
+        `SELECT id FROM players WHERE team_id = ? AND id IN (${placeholders})`,
+        [teamId, ...playerIds]
+      );
+      for (const p of validPlayers) {
+        await db.query('INSERT INTO tada_request_players (tada_request_id, player_id) VALUES (?, ?)', [tadaRequestId, p.id]);
+      }
     }
 
     // Notify staff
@@ -305,7 +331,7 @@ async function approveTadaRequest(req, res, next) {
     }
 
     const reqObj = requests[0];
-    if (req.user.role === 'STAFF' && req.user.teamId != reqObj.team_id) {
+    if (req.user.role === 'STAFF' && req.user.teamId && req.user.teamId != reqObj.team_id) {
       return res.status(403).json({ success: false, message: 'Unauthorized to approve request for another team.' });
     }
 
@@ -325,6 +351,24 @@ async function approveTadaRequest(req, res, next) {
       referenceId: tadaId
     });
 
+    // Notify all approved players in this TA/DA request
+    const [tadaPlayers] = await db.query(
+      `SELECT p.user_id FROM tada_request_players tdp JOIN players p ON tdp.player_id = p.id WHERE tdp.tada_request_id = ?`,
+      [tadaId]
+    );
+
+    for (const p of tadaPlayers) {
+      if (p.user_id) {
+        await sendNotification({
+          userId: p.user_id,
+          title: 'TA/DA Approved',
+          message: `Your Travel Allowance (TA/DA) claim for match "${reqObj.match_title}" has been approved by staff.`,
+          type: 'TADA_APPROVED',
+          referenceId: tadaId
+        });
+      }
+    }
+
     return res.json({ success: true, message: 'TA/DA Request approved.' });
   } catch (err) {
     next(err);
@@ -343,7 +387,7 @@ async function rejectTadaRequest(req, res, next) {
     }
 
     const reqObj = requests[0];
-    if (req.user.role === 'STAFF' && req.user.teamId != reqObj.team_id) {
+    if (req.user.role === 'STAFF' && req.user.teamId && req.user.teamId != reqObj.team_id) {
       return res.status(403).json({ success: false, message: 'Unauthorized to reject request for another team.' });
     }
 

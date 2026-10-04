@@ -13,7 +13,9 @@ router.patch('/:id/cancel', authenticate, authorize('STAFF', 'CAPTAIN'), matches
 router.post('/:id/selections', authenticate, authorize('CAPTAIN'), matchesController.submitMatchSelections);
 router.get('/:id/selections', authenticate, matchesController.getMatchSelections);
 
-// Selection approval endpoints (Note: route path matched to /api/selections/:id/approve & reject via subrouter or root mount)
+// Selection approval endpoints (handles /api/selections/:id/approve & /api/matches/selections/:id/approve)
+router.patch('/:id/approve', authenticate, authorize('STAFF'), matchesController.approveSelection);
+router.patch('/:id/reject', authenticate, authorize('STAFF'), matchesController.rejectSelection);
 router.patch('/selections/:id/approve', authenticate, authorize('STAFF'), matchesController.approveSelection);
 router.patch('/selections/:id/reject', authenticate, authorize('STAFF'), matchesController.rejectSelection);
 

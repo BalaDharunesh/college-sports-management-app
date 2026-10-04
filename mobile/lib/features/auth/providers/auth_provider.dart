@@ -11,7 +11,7 @@ class AuthProvider extends ChangeNotifier {
   final ApiClient _apiClient = ApiClient();
   final StorageService _storageService = StorageService();
 
-  AuthStatus _status = AuthStatus.uninitialized;
+  AuthStatus _status = AuthStatus.loading;
   UserModel? _user;
   String? _errorMessage;
 
@@ -20,12 +20,15 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   AuthProvider() {
-    checkInitialAuth();
+    _init();
+  }
+
+  Future<void> _init() async {
+    await checkInitialAuth();
   }
 
   Future<void> checkInitialAuth() async {
     _status = AuthStatus.loading;
-    notifyListeners();
 
     try {
       final token = await _storageService.getToken();
